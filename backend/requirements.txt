@@ -1,0 +1,12 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+pydantic==2.11.3
+pydantic-settings==2.8.1
+python-dotenv==1.1.0
+orjson==3.10.15
+gunicorn==23.0.0
+python-json-logger==2.0.7
+minio==7.2.7
+pytest==8.3.4
+httpx==0.28.1
+python-multipart==0.0.9
