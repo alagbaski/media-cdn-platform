@@ -1,13 +1,15 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .api.router import api_router
 from .core.config import settings
 from .core.logging import configure_logging, get_logger
 from .core.middleware import CorrelationIdMiddleware
+from .services.storage import ensure_storage_dir
 
 
 def _build_lifespan(*, initialize_storage: bool):
@@ -18,18 +20,10 @@ def _build_lifespan(*, initialize_storage: bool):
 
         if initialize_storage:
             try:
-                from .services.storage import StorageService
-
-                storage = StorageService.from_settings(settings)
-                storage.create_bucket_if_missing()
-                app.state.storage = storage
-                logger.info("MinIO storage service initialized (bucket=%s)", storage.bucket_name)
+                ensure_storage_dir()
+                logger.info("Local storage service initialized")
             except Exception as exc:
-                app.state.storage = None
-                logger.warning("MinIO storage unavailable, running without storage: %s", exc)
-        else:
-            app.state.storage = None
-            logger.info("Storage bootstrap disabled for this app instance")
+                logger.warning("Local storage unavailable: %s", exc)
 
         logger.info("Application startup complete")
         yield
@@ -67,6 +61,13 @@ def create_app(*, initialize_storage: bool = True) -> FastAPI:
             content={"detail": "An internal server error occurred."},
         )
 
+    @app.middleware("http")
+    async def media_cache_headers_middleware(request: Request, call_next):
+        response: Response = await call_next(request)
+        if request.url.path.startswith("/media/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
     app.add_middleware(CorrelationIdMiddleware)
 
     app.add_middleware(
@@ -77,6 +78,8 @@ def create_app(*, initialize_storage: bool = True) -> FastAPI:
         allow_headers=["*"],
     )
 
+    uploads_dir = ensure_storage_dir()
+    app.mount("/media", StaticFiles(directory=str(uploads_dir)), name="media")
     app.include_router(api_router, prefix=settings.api_prefix)
     return app
 

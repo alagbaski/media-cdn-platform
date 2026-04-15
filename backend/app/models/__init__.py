@@ -1,12 +1,11 @@
 """Application data models."""
 
 from .health import HealthResponse, ReadinessResponse
-from .media import MediaListItem, MediaListResponse, MediaUploadResponse
+from .media import MediaListItem, MediaUploadResponse
 
 __all__ = [
     "HealthResponse",
     "ReadinessResponse",
     "MediaListItem",
-    "MediaListResponse",
     "MediaUploadResponse",
 ]

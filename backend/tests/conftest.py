@@ -1,11 +1,13 @@
 """Test fixtures and configuration."""
 
+from pathlib import Path
+
 import pytest
 from httpx import ASGITransport, AsyncClient
-from unittest.mock import MagicMock
 
 from app.main import create_app
 from app.core.config import get_settings
+from app.services import storage as storage_service
 
 
 @pytest.fixture(scope="session")
@@ -21,28 +23,17 @@ def anyio_backend():
 
 
 @pytest.fixture
-def mock_storage():
-    """Mock StorageService for testing."""
-    # Use a mock that doesn't strictly enforce a spec for internal attributes like _client
-    mock = MagicMock()
-    mock.bucket_name = "test-bucket"
-    mock._endpoint = "localhost:9000"
-    mock._secure = False
-    
-    # Setup common return values
-    mock.get_file_url.return_value = "http://localhost:9000/test-bucket/test.jpg"
-    mock.upload_file.return_value = "test.jpg"
-    
-    # Setup the internal MinIO client mock
-    mock._client = MagicMock()
-    return mock
+def temp_storage_dir(tmp_path, monkeypatch):
+    """Use isolated temp storage directory for each test."""
+    upload_dir = Path(tmp_path) / "storage" / "uploads"
+    monkeypatch.setattr(storage_service, "STORAGE_UPLOAD_DIR", upload_dir)
+    return upload_dir
 
 
 @pytest.fixture
-async def client(mock_storage):
+async def client(temp_storage_dir):
     """Return an AsyncClient for the FastAPI application."""
-    app = create_app(initialize_storage=False)
-    app.state.storage = mock_storage
+    app = create_app(initialize_storage=True)
 
     async with AsyncClient(
         transport=ASGITransport(app=app),

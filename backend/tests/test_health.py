@@ -24,24 +24,24 @@ async def test_base_health_check(client):
 
 
 @pytest.mark.anyio
-async def test_readiness_check_success(client, mock_storage):
-    """Test the readiness endpoint when storage is healthy."""
-    mock_storage._client.bucket_exists.return_value = True
-    
+async def test_readiness_check_success(client):
+    """Test readiness endpoint when storage is available."""
     response = await client.get("/api/v1/health/ready")
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["status"] == "ok"
-    assert data["checks"]["storage"] == "ok"
+    assert data["checks"]["storage"] == "available"
 
 
 @pytest.mark.anyio
-async def test_readiness_check_degraded(client, mock_storage):
-    """Test the readiness endpoint when storage fails."""
-    mock_storage._client.bucket_exists.side_effect = Exception("Connection error")
-    
+async def test_readiness_check_degraded(client, monkeypatch):
+    """Test readiness endpoint when storage is unavailable."""
+    monkeypatch.setattr(
+        "app.api.routes.health.is_storage_available",
+        lambda: False,
+    )
     response = await client.get("/api/v1/health/ready")
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["status"] == "degraded"
-    assert data["checks"]["storage"] == "error"
+    assert data["checks"]["storage"] == "unavailable"

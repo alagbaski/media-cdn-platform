@@ -1,12 +1,10 @@
 """Health-check routes."""
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, status
 
 from app.core.config import settings
-from app.core.logging import get_logger
 from app.models.health import HealthResponse, ReadinessResponse
-
-logger = get_logger(__name__)
+from app.services.storage import is_storage_available
 
 router = APIRouter(prefix="/health", tags=["health"])
 
@@ -23,24 +21,11 @@ async def health_check() -> HealthResponse:
 
 
 @router.get("/ready", response_model=ReadinessResponse, status_code=status.HTTP_200_OK)
-async def readiness_check(request: Request) -> ReadinessResponse:
+async def readiness_check() -> ReadinessResponse:
     """Readiness probe endpoint that checks application dependencies."""
-    checks: dict[str, str] = {}
-
-    # Check MinIO storage connectivity
-    storage = getattr(request.app.state, "storage", None)
-    if storage is None:
-        checks["storage"] = "unavailable"
-    else:
-        try:
-            storage._client.bucket_exists(storage.bucket_name)
-            checks["storage"] = "ok"
-        except Exception as exc:
-            logger.warning("Storage readiness check failed: %s", exc)
-            checks["storage"] = "error"
-
-    all_ok = all(v == "ok" for v in checks.values())
-    overall = "ok" if all_ok else "degraded"
+    storage_ok = is_storage_available()
+    checks = {"storage": "available" if storage_ok else "unavailable"}
+    overall = "ok" if storage_ok else "degraded"
 
     return ReadinessResponse(
         status=overall,

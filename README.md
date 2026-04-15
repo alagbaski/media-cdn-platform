@@ -1,122 +1,128 @@
-# 🚀 Media CDN Platform
+# Media CDN Platform
 
-A high-performance, production-ready Media CDN backend built with **FastAPI**, **Gunicorn**, and **MinIO**. Designed for scalability, observability, and extreme reliability.
+A production-grade Media Content Delivery Network (CDN) platform designed for high-performance file uploads and edge-optimized delivery. This solution leverages **NGINX** as a high-speed static file server and **FastAPI** as a robust application backend.
 
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=FastAPI&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=Python&logoColor=white)
-![MinIO](https://img.shields.io/badge/MinIO-C72E49?style=for-the-badge&logo=MinIO&logoColor=white)
-![Gunicorn](https://img.shields.io/badge/Gunicorn-499848?style=for-the-badge&logo=Gunicorn&logoColor=white)
+## 🏗 Architecture
 
----
-
-## ✨ Key Features
-
-### ⚡ Performance
-- **ORJSON**: High-speed JSON serialization.
-- **Multiprocessing**: Gunicorn worker management optimized for CPU core count.
-- **Asynchronous**: Fully non-blocking I/O using FastAPI and Starlette.
-
-### 🛡️ Reliability & Security
-- **Graceful Shutdown**: Managed lifespan hooks for clean resource cleanup.
-- **Dependency Probes**: Advanced `/health/ready` endpoint with real-time MinIO connectivity checks.
-- **Global Error Handling**: Centralized exception management to prevent stack trace leaks in production.
-- **Docs Gating**: Swagger and ReDoc are automatically disabled in `production` and `staging` environments.
-
-### 📊 Observability
-- **Request Correlation**: Automated `X-Request-ID` propagation through middleware.
-- **Structured Logging**: JSON-formatted logs for seamless ingestion by ELK, Splunk, or CloudWatch.
-- **Context-Aware Logs**: Every log entry automatically includes the unique `request_id`.
-
----
-
-## 🏗️ Architecture
+The platform follows a classic **Edge/Origin** architecture where NGINX acts as the intelligent edge layer, serving cached/static media directly from disk while proxying dynamic API requests to the origin backend.
 
 ```mermaid
 graph TD
-    Client[Client/Ingress] --> Gunicorn[Gunicorn Master]
-    Gunicorn --> Worker1[Uvicorn Worker 1]
-    Gunicorn --> WorkerN[Uvicorn Worker N]
-    Worker1 --> FastAPI[FastAPI App]
-    FastAPI --> Middleware[ID Correlation & Logs]
-    FastAPI --> Storage[MinIO Storage Service]
-    Storage --> MinIO[(MinIO Bucket)]
+    subgraph "Client Layer"
+        C1[Browser / API Client]
+    end
+
+    subgraph "Edge Layer (NGINX:8080)"
+        N1[CDN Router]
+        N2[Static Media Handler]
+        N3[API Proxy Handler]
+    end
+
+    subgraph "Application Layer (FastAPI:8000)"
+        F1[FastAPI Backend]
+        F2[Upload Service]
+        F3[Health/Metrics]
+    end
+
+    subgraph "Storage Layer"
+        S1[(Local Filesystem /storage/uploads)]
+    end
+
+    %% Flow: Media Retrieval
+    C1 -- GET /media/{file} --> N2
+    N2 -- Direct Disk Read --> S1
+
+    %% Flow: API Request
+    C1 -- API Requests --> N3
+    N3 -- Proxy Pass --> F1
+
+    %% Flow: Upload
+    F1 -- "save_file()" --> F2
+    F2 -- Write to Disk --> S1
+
+    style Edge Layer fill:#f9f,stroke:#333,stroke-width:2px
+    style Application Layer fill:#bbf,stroke:#333,stroke-width:2px
+    style Storage Layer fill:#dfd,stroke:#333,stroke-width:2px
 ```
+
+### Key Design Decisions
+- **Static CDN Mode**: NGINX serves media directly from the filesystem. This bypasses the Python interpreter entirely for binary delivery, ensuring ultra-low latency and maximum concurrency.
+- **Unified Storage Volume**: A shared Docker volume between NGINX and the Backend ensures that uploaded files are immediately available for serving at the edge.
+- **Edge Caching Headers**: NGINX is configured to inject immutable cache headers for media assets, allowing browsers and downstream CDNs to cache content for up to 1 year.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Features
 
-### 1. Prerequisites
-- Python 3.10+
-- MinIO (Local or Cloud instance)
-
-### 2. Installation
-```bash
-# Clone the repository
-git clone <repo-url>
-cd media-cdn-platform
-
-# Create and activate virtual environment
-python -m venv backend/.venv
-source backend/.venv/bin/activate
-
-# Install dependencies
-pip install -r backend/requirements.txt
-```
-
-### 3. Configuration
-Create a root `.env` file based on root `.env.example`:
-```env
-MINIO_ENDPOINT=<YOUR_MINIO_ENDPOINT>
-MINIO_ACCESS_KEY=<YOUR_MINIO_ACCESS_KEY>
-MINIO_SECRET_KEY=<YOUR_MINIO_SECRET_KEY>
-MINIO_BUCKET=<YOUR_MINIO_BUCKET>
-```
-
-### 4. Running the App
-**Development:**
-```bash
-cd backend
-uvicorn app.main:app --reload
-```
-
-**Production:**
-```bash
-cd backend
-gunicorn -c gunicorn_conf.py app.main:app
-```
+- ✅ **High-Performance Delivery**: Minimal overhead via NGINX `alias` serving.
+- ✅ **Edge Caching**: Pre-configured `Cache-Control` headers for optimal browser behavior.
+- ✅ **Deterministic 404s**: No phantom caching of failed requests.
+- ✅ **DevOps Friendly**: Fully containerized with Docker Compose.
+- ✅ **API First**: Clean FastAPI backend with automatic Swagger/ReDoc documentation.
 
 ---
 
-## 🛣️ API Endpoints
+## 🛠 Tech Stack
 
-### 🩺 Health & Monitoring
+- **Edge Proxy**: NGINX (latest)
+- **Backend**: FastAPI (Python 3.12)
+- **Process Manager**: Gunicorn (Uvicorn Workers)
+- **Containerization**: Docker & Docker Compose
+- **Storage**: Local Filesystem (POSIX-compliant)
+
+---
+
+## 📡 API Endpoints
+
+### Media Operations
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/v1/health/` | General service status. |
-| `GET` | `/api/v1/health/live` | Liveness probe for orchestrators. |
-| `GET` | `/api/v1/health/ready` | Readiness probe (checks MinIO connectivity). |
+| **POST** | `/api/v1/media/upload` | Upload a new media file (Multipart Form) |
+| **GET** | `/api/v1/media/` | List all available media files |
+| **GET** | `/media/{filename}` | Retrieve a specific media file (Served by NGINX) |
 
-### 📁 Media Operations
+### System Health
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/v1/media/` | List all objects in the configured bucket. |
-| `POST` | `/api/v1/media/upload` | Upload a new media file (multipart/form-data). |
+| **GET** | `/api/v1/health` | Basic liveness check |
+| **GET** | `/api/v1/health/ready`| Readiness check (verifies storage connectivity) |
 
 ---
 
-## 🧪 Testing
-The project uses `pytest` with 100% coverage on core logic and integration points.
+## 📦 Setup & Deployment
 
+1. **Clone and Initialize**:
+   ```bash
+   git clone <repository-url>
+   cd media-cdn-platform
+   ```
+
+2.  **Environment Setup**:
+    ```bash
+    cp .env.example .env
+    ```
+
+3. **Start the Platform**:
+   ```bash
+   docker-compose up --build -d
+   ```
+
+---
+
+## 🧪 Usage Examples
+
+### 1. Upload a File
 ```bash
-# Run the test suite
-PYTHONPATH=. pytest tests/
+curl -F "file=@my_image.jpg" http://localhost:8080/api/v1/media/upload
 ```
 
----
+### 2. Retrieve Media (Edge)
+```bash
+curl -I http://localhost:8080/media/my_image.jpg
+```
+*Observe the `Cache-Control: public, max-age=31536000, immutable` header.*
 
-## 🛠️ Built With
-- **[FastAPI](https://fastapi.tiangolo.com/)**: Modern web framework.
-- **[MinIO Python SDK](https://min.io/docs/minio/linux/index.html)**: Object storage client.
-- **[Pydantic V2](https://docs.pydantic.dev/)**: Data validation and settings management.
-- **[python-json-logger](https://github.com/madzak/python-json-logger)**: Structured logging.
+### 3. Check Health
+```bash
+curl http://localhost:8080/api/v1/health/ready
+```
