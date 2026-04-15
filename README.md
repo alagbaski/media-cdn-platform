@@ -54,33 +54,35 @@ graph TD
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd backend
+cd media-cdn-platform
 
 # Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate
+python -m venv backend/.venv
+source backend/.venv/bin/activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 ```
 
 ### 3. Configuration
-Create a `.env` file based on `.env.example`:
+Create a root `.env` file based on root `.env.example`:
 ```env
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_BUCKET=media-cdn
+MINIO_ENDPOINT=<YOUR_MINIO_ENDPOINT>
+MINIO_ACCESS_KEY=<YOUR_MINIO_ACCESS_KEY>
+MINIO_SECRET_KEY=<YOUR_MINIO_SECRET_KEY>
+MINIO_BUCKET=<YOUR_MINIO_BUCKET>
 ```
 
 ### 4. Running the App
 **Development:**
 ```bash
+cd backend
 uvicorn app.main:app --reload
 ```
 
 **Production:**
 ```bash
+cd backend
 gunicorn -c gunicorn_conf.py app.main:app
 ```
 
