@@ -10,28 +10,35 @@ from .core.logging import configure_logging, get_logger
 from .core.middleware import CorrelationIdMiddleware
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application startup/shutdown lifecycle hooks."""
-    logger = get_logger(__name__)
+def _build_lifespan(*, initialize_storage: bool):
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        """Application startup/shutdown lifecycle hooks."""
+        logger = get_logger(__name__)
 
-    # Initialize storage service if MinIO is configured
-    try:
-        from .services.storage import StorageService
-        storage = StorageService.from_settings(settings)
-        storage.create_bucket_if_missing()
-        app.state.storage = storage
-        logger.info("MinIO storage service initialized (bucket=%s)", storage.bucket_name)
-    except Exception as exc:
-        app.state.storage = None
-        logger.warning("MinIO storage unavailable, running without storage: %s", exc)
+        if initialize_storage:
+            try:
+                from .services.storage import StorageService
 
-    logger.info("Application startup complete")
-    yield
-    logger.info("Application shutdown complete")
+                storage = StorageService.from_settings(settings)
+                storage.create_bucket_if_missing()
+                app.state.storage = storage
+                logger.info("MinIO storage service initialized (bucket=%s)", storage.bucket_name)
+            except Exception as exc:
+                app.state.storage = None
+                logger.warning("MinIO storage unavailable, running without storage: %s", exc)
+        else:
+            app.state.storage = None
+            logger.info("Storage bootstrap disabled for this app instance")
+
+        logger.info("Application startup complete")
+        yield
+        logger.info("Application shutdown complete")
+
+    return lifespan
 
 
-def create_app() -> FastAPI:
+def create_app(*, initialize_storage: bool = True) -> FastAPI:
     """Application factory."""
     log_level = "DEBUG" if settings.debug or settings.environment == "development" else "INFO"
     configure_logging(level=log_level)
@@ -47,7 +54,7 @@ def create_app() -> FastAPI:
         redoc_url=None if is_prod else settings.redoc_url,
         openapi_url=None if is_prod else settings.openapi_url,
         default_response_class=ORJSONResponse,
-        lifespan=lifespan,
+        lifespan=_build_lifespan(initialize_storage=initialize_storage),
     )
 
     # Global Exception Handler

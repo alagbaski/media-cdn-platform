@@ -1,18 +1,23 @@
 """Test fixtures and configuration."""
 
 import pytest
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 from unittest.mock import MagicMock
 
 from app.main import create_app
 from app.core.config import get_settings
-from app.services.storage import StorageService
 
 
 @pytest.fixture(scope="session")
 def settings():
     """Return test settings."""
     return get_settings()
+
+
+@pytest.fixture(scope="session")
+def anyio_backend():
+    """Use asyncio backend for anyio-marked tests."""
+    return "asyncio"
 
 
 @pytest.fixture
@@ -34,11 +39,13 @@ def mock_storage():
 
 
 @pytest.fixture
-def client(mock_storage):
-    """Return a TestClient for the FastAPI application."""
-    app = create_app()
-    
-    with TestClient(app) as c:
-        # Inject the mock AFTER the lifespan has run to prevent it from being overwritten
-        c.app.state.storage = mock_storage
+async def client(mock_storage):
+    """Return an AsyncClient for the FastAPI application."""
+    app = create_app(initialize_storage=False)
+    app.state.storage = mock_storage
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://testserver",
+    ) as c:
         yield c

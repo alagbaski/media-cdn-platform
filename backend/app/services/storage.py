@@ -8,6 +8,7 @@ from urllib.parse import quote, urlparse
 
 from minio import Minio
 from minio.error import S3Error
+from urllib3 import PoolManager, Retry, Timeout
 
 from ..core.config import Settings, get_settings
 from ..core.logging import get_logger
@@ -42,6 +43,17 @@ class StorageService:
             access_key=access_key,
             secret_key=secret_key,
             secure=self._secure,
+            # Keep startup and readiness checks responsive when storage is unreachable.
+            http_client=PoolManager(
+                timeout=Timeout(connect=1.5, read=1.5),
+                retries=Retry(
+                    total=1,
+                    connect=1,
+                    read=1,
+                    backoff_factor=0.1,
+                    raise_on_status=False,
+                ),
+            ),
         )
 
     @classmethod
@@ -76,7 +88,8 @@ class StorageService:
             raise StorageServiceError("MINIO_ENDPOINT cannot be empty")
 
         if "://" not in raw:
-            return raw, True
+            # Default to non-TLS for scheme-less endpoints (common in local MinIO setups).
+            return raw, False
 
         parsed = urlparse(raw)
         if parsed.scheme not in {"http", "https"}:

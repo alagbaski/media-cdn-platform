@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+REPO_ROOT_DIR = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
@@ -31,7 +34,7 @@ class Settings(BaseSettings):
     minio_bucket: str | None = None
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=REPO_ROOT_DIR / ".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
