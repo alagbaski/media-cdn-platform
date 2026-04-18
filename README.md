@@ -113,7 +113,7 @@ graph TD
 - `BACKEND_PORT`: Backend container port and Nginx upstream port (default `8000`)
 - `LOCAL_STORAGE_PATH`: Host upload directory (default `./storage/uploads`)
 - `UPLOAD_PATH`: In-container upload directory (default `/app/storage/uploads`)
-- `BACKEND_UPLOAD_PATH`: Backend runtime upload path (default `./storage/uploads` for local dev; Compose maps it to `/app/storage/uploads`)
+- `BACKEND_UPLOAD_PATH`: Backend runtime upload path (default `/app/storage/uploads` and must be absolute in containerized runs)
 
 Nginx now uses a template at `nginx/nginx.conf.template`, rendered at container startup with `envsubst`.
 

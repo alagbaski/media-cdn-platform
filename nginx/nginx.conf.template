@@ -11,9 +11,6 @@ http {
     add_header Referrer-Policy "strict-origin-when-cross-origin";
     add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';";
 
-    # Cache configuration
-    proxy_cache_path /tmp/nginx_cache levels=1:2 keys_zone=cdn_cache:10m max_size=1g inactive=60m use_temp_path=off;
-
     server {
         listen ${NGINX_PORT};
 

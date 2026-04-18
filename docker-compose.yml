@@ -8,12 +8,28 @@ services:
     cap_drop:
       - ALL
     environment:
+      APP_NAME: ${APP_NAME:-Media-CDN-Platform-API}
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+      SERVICE_NAME: ${SERVICE_NAME:-media-cdn-platform}
+      DEBUG: ${DEBUG:-false}
       HOST: ${HOST}
       PORT: ${BACKEND_PORT}
       ENVIRONMENT: ${ENVIRONMENT}
-      BACKEND_UPLOAD_PATH: ${BACKEND_UPLOAD_PATH}
+      BACKEND_UPLOAD_PATH: /app/storage/uploads
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys;urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/ready', timeout=3);sys.exit(0)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     volumes:
-      - ${LOCAL_STORAGE_PATH}:${BACKEND_UPLOAD_PATH}
+      - ${LOCAL_STORAGE_PATH:-./storage/uploads}:/app/storage/uploads
 
   nginx:
     image: nginx:1.30.0-alpine
@@ -24,6 +40,10 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
     tmpfs:
       - /tmp
       - /var/run
@@ -32,7 +52,7 @@ services:
       NGINX_PORT: ${NGINX_PORT}
       BACKEND_SERVICE: ${BACKEND_SERVICE}
       BACKEND_PORT: ${BACKEND_PORT}
-      UPLOAD_PATH: ${UPLOAD_PATH}
+      UPLOAD_PATH: /app/storage/uploads
     command: >
       /bin/sh -c "envsubst '$$NGINX_PORT $$BACKEND_SERVICE $$BACKEND_PORT $$UPLOAD_PATH'
       < /etc/nginx/templates/nginx.conf.template > /tmp/nginx.conf
@@ -41,6 +61,7 @@ services:
       - "${NGINX_PORT}:${NGINX_PORT}"
     volumes:
       - "./nginx/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro"
-      - "${LOCAL_STORAGE_PATH}:${UPLOAD_PATH}:ro"
+      - "${LOCAL_STORAGE_PATH:-./storage/uploads}:/app/storage/uploads:ro"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy

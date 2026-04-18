@@ -16,16 +16,24 @@ REPO_ROOT_DIR = Path("/app") if IS_DOCKER else Path(__file__).resolve().parents[
 class Settings(BaseSettings):
     """Runtime configuration for the API service."""
 
-    app_name: str = Field(validation_alias=AliasChoices("APP_NAME"))
-    app_version: str = Field(validation_alias=AliasChoices("APP_VERSION"))
-    service_name: str = Field(validation_alias=AliasChoices("SERVICE_NAME"))
+    app_name: str = Field(
+        default="Media-CDN-Platform-API",
+        validation_alias=AliasChoices("APP_NAME"),
+    )
+    app_version: str = Field(default="1.0.0", validation_alias=AliasChoices("APP_VERSION"))
+    service_name: str = Field(
+        default="media-cdn-platform",
+        validation_alias=AliasChoices("SERVICE_NAME"),
+    )
     environment: str = Field(
+        default="development",
         validation_alias=AliasChoices("ENVIRONMENT", "APP_ENVIRONMENT"),
     )
 
-    debug: bool = Field(validation_alias=AliasChoices("DEBUG"))
-    host: str = Field(validation_alias=AliasChoices("HOST"))
+    debug: bool = Field(default=False, validation_alias=AliasChoices("DEBUG"))
+    host: str = Field(default="0.0.0.0", validation_alias=AliasChoices("HOST"))
     port: int = Field(
+        default=8000,
         validation_alias=AliasChoices("BACKEND_PORT", "PORT"),
     )
     backend_upload_path: Path = Field(
