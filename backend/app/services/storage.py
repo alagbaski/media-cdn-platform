@@ -9,9 +9,9 @@ from urllib.parse import quote
 
 from fastapi import UploadFile
 
-REPO_ROOT_DIR = Path(__file__).resolve().parents[3]
-UPLOAD_DIR = REPO_ROOT_DIR / "storage" / "uploads"
-STORAGE_UPLOAD_DIR = UPLOAD_DIR
+from app.core.config import settings
+
+STORAGE_UPLOAD_DIR = Path(settings.backend_upload_path)
 
 
 def ensure_storage_dir() -> Path:
@@ -48,7 +48,7 @@ def save_file(file: UploadFile) -> dict[str, str]:
     encoded_name = quote(filename)
     return {
         "filename": filename,
-        "path": f"storage/uploads/{filename}",
+        "path": str(file_path),
         "url": f"/media/{encoded_name}",
     }
 

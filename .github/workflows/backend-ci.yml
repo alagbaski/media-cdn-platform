@@ -12,10 +12,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
 
@@ -25,3 +25,61 @@ jobs:
       - name: Run tests
         run: PYTHONPATH=. python -m pytest tests -q
         working-directory: backend
+
+  trivy-security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Cache Trivy DB
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ~/.cache/trivy
+          key: ${{ runner.os }}-trivy-${{ github.ref_name }}
+          restore-keys: |
+            ${{ runner.os }}-trivy-
+
+      - name: Build backend image
+        run: docker build -t media-cdn-backend:ci ./backend
+
+      - name: Trivy filesystem scan (repo)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+          format: sarif
+          output: trivy-results-fs.sarif
+
+      - name: Trivy image scan (backend)
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
+        with:
+          scan-type: image
+          image-ref: media-cdn-backend:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+          format: sarif
+          output: trivy-results-image.sarif
+
+      - name: Upload Trivy filesystem results
+        uses: github/codeql-action/upload-sarif@397b4764c5bc24305eb8b7267d26b1f20ed9f986 # v3.30.4
+        if: always() && hashFiles('trivy-results-fs.sarif') != ''
+        with:
+          sarif_file: trivy-results-fs.sarif
+          category: trivy-fs
+
+      - name: Upload Trivy image results
+        uses: github/codeql-action/upload-sarif@397b4764c5bc24305eb8b7267d26b1f20ed9f986 # v3.30.4
+        if: always() && hashFiles('trivy-results-image.sarif') != ''
+        with:
+          sarif_file: trivy-results-image.sarif
+          category: trivy-image

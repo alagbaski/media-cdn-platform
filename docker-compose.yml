@@ -2,16 +2,45 @@ services:
   backend:
     build: ./backend
     container_name: fastapi_backend
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      HOST: ${HOST}
+      PORT: ${BACKEND_PORT}
+      ENVIRONMENT: ${ENVIRONMENT}
+      BACKEND_UPLOAD_PATH: ${BACKEND_UPLOAD_PATH}
     volumes:
-      - ./storage/uploads:/app/storage/uploads
+      - ${LOCAL_STORAGE_PATH}:${BACKEND_UPLOAD_PATH}
 
   nginx:
-    image: nginx:latest
+    image: nginx:1.30.0-alpine
     container_name: nginx_cdn
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+      - /var/run
+      - /var/cache/nginx
+    environment:
+      NGINX_PORT: ${NGINX_PORT}
+      BACKEND_SERVICE: ${BACKEND_SERVICE}
+      BACKEND_PORT: ${BACKEND_PORT}
+      UPLOAD_PATH: ${UPLOAD_PATH}
+    command: >
+      /bin/sh -c "envsubst '$$NGINX_PORT $$BACKEND_SERVICE $$BACKEND_PORT $$UPLOAD_PATH'
+      < /etc/nginx/templates/nginx.conf.template > /tmp/nginx.conf
+      && nginx -c /tmp/nginx.conf -g 'daemon off;'"
     ports:
-      - "8080:8080"
+      - "${NGINX_PORT}:${NGINX_PORT}"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./storage/uploads:/app/storage/uploads:ro
+      - "./nginx/nginx.conf.template:/etc/nginx/templates/nginx.conf.template:ro"
+      - "${LOCAL_STORAGE_PATH}:${UPLOAD_PATH}:ro"
     depends_on:
       - backend

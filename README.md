@@ -107,6 +107,16 @@ graph TD
    docker-compose up --build -d
    ```
 
+### Runtime Configuration (Env-Driven)
+- `NGINX_PORT`: Nginx listen/published port (default `8080`)
+- `BACKEND_SERVICE`: Upstream backend DNS name for Nginx (default `backend`)
+- `BACKEND_PORT`: Backend container port and Nginx upstream port (default `8000`)
+- `LOCAL_STORAGE_PATH`: Host upload directory (default `./storage/uploads`)
+- `UPLOAD_PATH`: In-container upload directory (default `/app/storage/uploads`)
+- `BACKEND_UPLOAD_PATH`: Backend runtime upload path (default `./storage/uploads` for local dev; Compose maps it to `/app/storage/uploads`)
+
+Nginx now uses a template at `nginx/nginx.conf.template`, rendered at container startup with `envsubst`.
+
 ---
 
 ## 🧪 Usage Examples
@@ -125,4 +135,26 @@ curl -I http://localhost:8080/media/my_image.jpg
 ### 3. Check Health
 ```bash
 curl http://localhost:8080/api/v1/health/ready
+```
+
+---
+
+## 🔐 Security Scanning (Trivy)
+
+Trivy is integrated into CI via `.github/workflows/backend-ci.yml` and blocks pull requests/pushes when **HIGH/CRITICAL** issues are found.
+
+### What gets scanned
+- Repository filesystem (dependencies, secrets, and IaC/config)
+- Built backend container image
+
+### Run locally before deployment
+1. Install Trivy: https://trivy.dev/latest/getting-started/installation/
+2. Execute the project scan script:
+```bash
+./scripts/trivy-scan.sh
+```
+
+Optional overrides:
+```bash
+TRIVY_IMAGE_TAG=my-backend:scan TRIVY_SEVERITY=CRITICAL ./scripts/trivy-scan.sh
 ```
